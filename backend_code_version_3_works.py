@@ -1,14 +1,18 @@
 from flask import Flask, request, jsonify
 import cv2
 import numpy as np
-from tensorflow.keras.models import load_model
-from tensorflow.keras.preprocessing.image import img_to_array
+#from tensorflow.keras.models import load_model
+#from tensorflow.keras.preprocessing.image import img_to_array
+import tensorflow as tf
+from tensorflow.python.keras.models import load_model
+#from tensorflow.python.keras.preprocessing.image import img_to_array
+
 from PIL import Image
 import os
 
 app = Flask(__name__)
 
-# Load your pre-trained skin analysis model (Replace with actual model)
+# Load your pre-trained skin analysis model
 MODEL_PATH = "skin_analysis_model.h5"
 if os.path.exists(MODEL_PATH):
     model = load_model(MODEL_PATH)
@@ -29,32 +33,21 @@ def get_recommendations(features):
         recommendations.append("Oil-free cleanser and lightweight moisturizer")
     return recommendations
 
+def preprocess_image(image_path):
+    img = Image.open(image_path).convert("RGB")  # Open the image and convert it to RGB format
+    img = img.resize((224, 224))  # Resize the image to the model's expected input size (224x224)
+    img_array = np.array(img) / 255.0  # Normalize pixel values to the range [0, 1]
+    return np.expand_dims(img_array, axis=0)  # Add a batch dimension for prediction
 
 # Function to process the image and analyze facial features
 def analyze_image(image):
     try:
-        # Convert the image to grayscale
-        gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-        # Load a pre-trained face detector from OpenCV
-        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-        faces = face_cascade.detectMultiScale(gray_image, scaleFactor=1.1, minNeighbors=5)
-
-        if len(faces) == 0:
-            return {"error": "No face detected"}
-
-        # For simplicity, analyze the first detected face
-        (x, y, w, h) = faces[0]
-        face_region = image[y:y + h, x:x + w]
-
-        # Resize the face for the model
-        resized_face = cv2.resize(face_region, (224, 224))
-        normalized_face = resized_face / 255.0  # Normalize pixel values
-        input_data = np.expand_dims(normalized_face, axis=0)  # Add batch dimension
+        # Preprocess the image
+        preprocessed_image = preprocess_image(image)
 
         # Analyze the face using the model (mock example for now)
         if model:
-            predictions = model.predict(input_data)
+            predictions = model.predict(preprocessed_image)
             features = {
                 "dryness": predictions[0][0] > 0.5,
                 "wrinkles": predictions[0][1] > 0.5,
@@ -76,6 +69,7 @@ def analyze_image(image):
 
     except Exception as e:
         return {"error": str(e)}
+
 
 
 # Define the Flask API endpoint
